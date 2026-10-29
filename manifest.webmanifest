@@ -1,0 +1,17 @@
+{
+  "name": "Sufra — Calorie & Macro Tracker",
+  "short_name": "Sufra",
+  "description": "Calorie and macro diary with Saudi food library, barcode scanning (Open Food Facts) and meal photo estimation.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0F1719",
+  "theme_color": "#0E6B63",
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
