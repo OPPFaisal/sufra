@@ -104,7 +104,7 @@ main{padding:14px max(16px,var(--sar)) 0 max(16px,var(--sal));display:grid;gap:1
 .addmenu button b{font-size:15px}
 .addmenu button span{font-size:12px;color:var(--muted)}
 .addmenu button svg{width:26px;height:26px;stroke:var(--accent);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-.addmenu button:disabled{opacity:.45}
+.addmenu button.nokey{opacity:.6}.addmenu button.nokey span{color:var(--warn)}
 
 /* Sheet */
 .scrim{position:fixed;inset:0;background:rgba(10,18,22,.5);z-index:20}
@@ -296,12 +296,12 @@ function openAddMenu(meal){
   meal=meal||guessMeal();const hasKey=!!state.settings.anthropicKey;
   openSheet("Add to "+meal,`<div class="addmenu">
     <button id="aScan"><svg viewBox="0 0 24 24"><path d="M4 7V5h2M18 5h2v2M20 17v2h-2M6 19H4v-2M8 8v8M11 8v8M14 8v8M17 8v8"/></svg><b>Scan barcode</b><span>Live camera · Open Food Facts</span></button>
-    <button id="aSnap" ${hasKey?"":"disabled"}><svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3.5"/></svg><b>Snap meal</b><span>${hasKey?"AI estimates each item":"Add API key in Settings"}</span></button>
+    <button id="aSnap" class="${hasKey?"":"nokey"}"><svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3.5"/></svg><b>Snap meal</b><span>${hasKey?"AI estimates each item":"Add API key in Settings"}</span></button>
     <button id="aSearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><b>Search</b><span>Saudi dishes · products · USDA</span></button>
     <button id="aManual"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><b>Manual</b><span>Type the numbers</span></button>
   </div>${recentFoods().length?`<div class="label">Recent</div><div class="list" id="recent"></div>`:""}`,body=>{
     body.querySelector("#aScan").onclick=()=>{closeSheet();openScanner(meal)};
-    body.querySelector("#aSnap").onclick=()=>{closeSheet();snapMeal(meal)};
+    body.querySelector("#aSnap").onclick=()=>{closeSheet();if(!state.settings.anthropicKey){openSheet("Snap meal needs a key",`<div class="note">Photo recognition sends your picture to Claude (same technology Cal AI and MyFitnessPal use), billed to your own Anthropic account at a few halalas per photo. Nothing goes through a third-party server.</div><ol class="small" style="margin:0;padding-left:18px;display:grid;gap:4px"><li>Go to <b>console.anthropic.com</b> → sign up → Billing → add about $5 credit.</li><li>API Keys → Create key → copy it (starts with sk-ant-).</li><li>Paste it below and save.</li></ol><label class="field"><span class="label">Anthropic API key</span><input id="k1" type="password" autocomplete="off" placeholder="sk-ant-…"></label><button class="btn primary" id="sv">Save and continue</button>`,b=>{b.querySelector("#sv").onclick=()=>{const k=b.querySelector("#k1").value.trim();if(!k.startsWith("sk-ant-")){toast("That doesn't look like an Anthropic key");return}state.settings.anthropicKey=k;save();closeSheet();toast("Key saved");snapMeal(meal)}});return}snapMeal(meal)};
     body.querySelector("#aSearch").onclick=()=>{closeSheet();openSearch(meal)};
     body.querySelector("#aManual").onclick=()=>{closeSheet();openManual(meal)};
     const rc=body.querySelector("#recent");if(rc){rc.innerHTML=recentFoods().slice(0,8).map(f=>foodItemHTML(f)).join("");rc.querySelectorAll(".item").forEach(b=>b.onclick=()=>openPortion(allFoods().find(f=>f.id===b.dataset.id),meal))}
