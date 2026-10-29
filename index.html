@@ -320,23 +320,25 @@ function offToFood(p){
     p100:{k:r1(+kcal||0),p:r1(+n.proteins_100g||0),c:r1(+n.carbohydrates_100g||0),f:r1(+n.fat_100g||0),fi:r1(+n.fiber_100g||0),su:r1(+n.sugars_100g||0),na:Math.round(sodium)}};
 }
 async function offByCode(code){const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=${OFF_FIELDS}`,{headers:{"User-Agent":"Sufra/1.0 (personal tracker)"}});if(!r.ok)return null;const j=await r.json();return j.status===1&&j.product?offToFood(j.product):null}
-async function offSearch(q){const r=await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=25&fields=${OFF_FIELDS}&sort_by=unique_scans_n`);if(!r.ok)return[];const j=await r.json();const all=(j.products||[]).map(offToFood).filter(Boolean);all.sort((a,b)=>0);return all}
+async function offSearch(q){const r=await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q).replace(/%20/g,"+")}&json=1&page_size=20&fields=${OFF_FIELDS}`);if(r.status===429)throw{code:"rate"};if(!r.ok)return[];const j=await r.json();return(j.products||[]).map(offToFood).filter(Boolean)}
 function usdaToFood(f){const g=id=>{const x=(f.foodNutrients||[]).find(n=>n.nutrientId===id||n.nutrientNumber===String(id));return x?+x.value||0:0};
   return{id:"usda_"+f.fdcId,n:(f.description||"").toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase()),brand:f.brandOwner||"",src:"USDA",serv:f.servingSize?[["1 serving ("+f.servingSize+" "+(f.servingSizeUnit||"g")+")",+f.servingSize]]:[],
     p100:{k:r1(g(1008)),p:r1(g(1003)),c:r1(g(1005)),f:r1(g(1004)),fi:r1(g(1079)),su:r1(g(2000)),na:Math.round(g(1093))}}}
 async function usdaSearch(q){const key=state.settings.usdaKey||"DEMO_KEY";const r=await fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(q)}&pageSize=15&dataType=Foundation,SR%20Legacy,Survey%20(FNDDS)`);if(!r.ok)return[];const j=await r.json();return(j.foods||[]).map(usdaToFood).filter(f=>f.p100.k>0)}
 
 function openSearch(meal){
-  openSheet("Search food",`<div class="field"><input id="q" placeholder="kabsa · تمر · Almarai laban · oats" autocomplete="off" enterkeyhint="search"></div>${mealChips(meal)}<div class="chips"><button class="chip on" data-s="local">My library</button><button class="chip" data-s="off">Products (OFF)</button><button class="chip" data-s="usda">Generic (USDA)</button></div><div id="st" class="note" hidden></div><div class="list" id="results"></div>`,body=>{
+  openSheet("Search food",`<div class="field"><input id="q" placeholder="kabsa · تمر · Almarai laban · oats" autocomplete="off" enterkeyhint="search"></div>${mealChips(meal)}<div class="chips"><button class="chip on" data-s="local">My library</button><button class="chip" data-s="off">Products (OFF)</button><button class="chip" data-s="usda">Generic (USDA)</button></div><div id="st" class="note" hidden></div><button class="btn primary" id="go" hidden>Search</button><div class="list" id="results"></div>`,body=>{
     const getMeal=wireChips(body);const q=body.querySelector("#q"),res=body.querySelector("#results"),st=body.querySelector("#st");let src="local",timer=null,seq=0;
-    body.querySelectorAll("[data-s]").forEach(c=>c.onclick=()=>{body.querySelectorAll("[data-s]").forEach(x=>x.classList.remove("on"));c.classList.add("on");src=c.dataset.s;run()});
+    const go=body.querySelector("#go");
+    body.querySelectorAll("[data-s]").forEach(c=>c.onclick=()=>{body.querySelectorAll("[data-s]").forEach(x=>x.classList.remove("on"));c.classList.add("on");src=c.dataset.s;go.hidden=src==="local";res.innerHTML="";st.hidden=src==="local";if(src!=="local"){st.className="note";st.textContent="Type, then tap Search. Online databases allow about 10 searches a minute."}else run()});
+    go.onclick=run;
     const show=list=>{res.innerHTML=list.map(foodItemHTML).join("")||`<div class="note">Nothing found. Try another spelling, a different source, or Manual.</div>`;res.querySelectorAll(".item").forEach(b=>b.onclick=()=>openPortion(list.find(f=>f.id===b.dataset.id),getMeal()))};
     async function run(){const s=q.value.trim();const my=++seq;st.hidden=true;
       if(src==="local"){const t=s.toLowerCase();show(allFoods().filter(f=>!t||f.n.toLowerCase().includes(t)||(f.ar||"").includes(s)||(f.brand||"").toLowerCase().includes(t)||(f.code||"").includes(t)).slice(0,50));return}
       if(s.length<2){res.innerHTML="";st.hidden=false;st.textContent="Type at least 2 letters.";return}
       st.hidden=false;st.innerHTML=`<span class="spin"></span>Searching ${src==="off"?"Open Food Facts":"USDA"}…`;
-      try{const list=src==="off"?await offSearch(s):await usdaSearch(s);if(my!==seq)return;st.hidden=true;show(list)}catch(e){if(my!==seq)return;st.className="note err";st.textContent=navigator.onLine?"Search failed. Try again.":"You're offline."}}
-    q.oninput=()=>{clearTimeout(timer);timer=setTimeout(run,src==="local"?0:450)};q.onkeydown=e=>{if(e.key==="Enter"){clearTimeout(timer);run();q.blur()}};run();setTimeout(()=>q.focus(),250);
+      try{const list=src==="off"?await offSearch(s):await usdaSearch(s);if(my!==seq)return;st.hidden=true;show(list)}catch(e){if(my!==seq)return;st.className="note err";st.textContent=!navigator.onLine?"You're offline.":(e&&e.code==="rate")||/fetch/i.test(e&&e.message||"")?"The database is rate-limiting right now. Wait a minute and tap Search again.":"Search failed. Try again."}}
+    q.oninput=()=>{if(src==="local")run()};q.onkeydown=e=>{if(e.key==="Enter"){run();q.blur()}};run();setTimeout(()=>q.focus(),250);
   });
 }
 function openPortion(f,meal){
